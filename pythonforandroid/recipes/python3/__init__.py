@@ -378,21 +378,23 @@ class Python3Recipe(TargetPythonRecipe):
                                     prefix=sys_prefix).split(' ')),
                     _env=env)
 
-            # Patch Makefile to exclude POSIX-only modules that don't build on Android bionic
-            makefile = join(build_dir, 'Makefile')
-            if exists(makefile):
-                with open(makefile, 'r') as f:
-                    mf = f.read()
-                # 去掉 grp/spwd/fpectl/crypt/_testcapi/_testinternalcapi/_testlimitedapi
-                # 这些在 Android bionic libc 下不能编
-                bad_modules = ['grp', 'spwd', 'pwd', '_testcapi', '_testinternalcapi',
-                               '_testlimitedapi', 'fcntl', 'termios', 'resource',
-                               'nis', 'ossaudiodev', '_curses', '_curses_panel']
-                for m in bad_modules:
-                    # MODULE_OBJS 里去掉
-                    mf = re.sub(rf'\bModules/{m}\.o\b', '', mf)
-                with open(makefile, 'w') as f:
-                    f.write(mf)
+            # Force-disable problematic modules: directly strip grpmodule from Makefile
+            # grpmodule.c uses setgrent/getgrent/endgrent which are GNU extensions
+            # not in Android bionic libc. The cleanest fix is to also patch the .c file
+            # itself to add a stub.
+            import subprocess
+            grp_c = join(build_dir, 'Modules', 'grpmodule.c')
+            if exists(grp_c):
+                with open(grp_c, 'r') as f:
+                    gc = f.read()
+                # 注释掉 setgrent/getgrent/endgrent 调用
+                gc = gc.replace('setgrent();', '/* setgrent() stub for Android */')
+                gc = gc.replace('endgrent();', '/* endgrent() stub for Android */')
+                # getgrent 改返回 NULL
+                gc = gc.replace('while ((p = getgrent()) != NULL) {',
+                                'while (0 && (p = getgrent()) != NULL) { /* stub */')
+                with open(grp_c, 'w') as f:
+                    f.write(gc)
 
             shprint(
                 sh.make,
