@@ -378,23 +378,17 @@ class Python3Recipe(TargetPythonRecipe):
                                     prefix=sys_prefix).split(' ')),
                     _env=env)
 
-            # Force-disable problematic modules: directly strip grpmodule from Makefile
-            # grpmodule.c uses setgrent/getgrent/endgrent which are GNU extensions
-            # not in Android bionic libc. The cleanest fix is to also patch the .c file
-            # itself to add a stub.
-            import subprocess
+            # 直接 rm grpmodule.c + Modules/grp/ 目录
+            # while(0 && ...) 编译期还要看 getgrent 声明,bionic libc 没这个函数还是 error
+            # rm 整个,make 找不到 .c 就不编
+            import os, shutil
             grp_c = join(recipe_build_dir, 'Modules', 'grpmodule.c')
+            grp_dir = join(recipe_build_dir, 'Modules', 'grp')
             if exists(grp_c):
-                with open(grp_c, 'r') as f:
-                    gc = f.read()
-                # 注释掉 setgrent/getgrent/endgrent 调用
-                gc = gc.replace('setgrent();', '/* setgrent() stub for Android */')
-                gc = gc.replace('endgrent();', '/* endgrent() stub for Android */')
-                # getgrent 改返回 NULL
-                gc = gc.replace('while ((p = getgrent()) != NULL) {',
-                                'while (0 && (p = getgrent()) != NULL) { /* stub */')
-                with open(grp_c, 'w') as f:
-                    f.write(gc)
+                os.remove(grp_c)
+                info('Removed grpmodule.c for Android bionic compatibility')
+            if exists(grp_dir):
+                shutil.rmtree(grp_dir, ignore_errors=True)
 
             shprint(
                 sh.make,
