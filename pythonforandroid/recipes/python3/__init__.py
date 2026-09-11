@@ -377,6 +377,22 @@ class Python3Recipe(TargetPythonRecipe):
                                     prefix=sys_prefix).split(' ')),
                     _env=env)
 
+            # Patch Makefile to exclude POSIX-only modules that don't build on Android bionic
+            makefile = join(build_dir, 'Makefile')
+            if exists(makefile):
+                with open(makefile, 'r') as f:
+                    mf = f.read()
+                # 去掉 grp/spwd/fpectl/crypt/_testcapi/_testinternalcapi/_testlimitedapi
+                # 这些在 Android bionic libc 下不能编
+                bad_modules = ['grp', 'spwd', 'pwd', '_testcapi', '_testinternalcapi',
+                               '_testlimitedapi', 'fcntl', 'termios', 'resource',
+                               'nis', 'ossaudiodev', '_curses', '_curses_panel']
+                for m in bad_modules:
+                    # MODULE_OBJS 里去掉
+                    mf = re.sub(rf'\bModules/{m}\.o\b', '', mf)
+                with open(makefile, 'w') as f:
+                    f.write(mf)
+
             shprint(
                 sh.make,
                 'all',
