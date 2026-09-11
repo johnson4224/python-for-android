@@ -378,6 +378,26 @@ class Python3Recipe(TargetPythonRecipe):
                                     prefix=sys_prefix).split(' ')),
                     _env=env)
 
+            # Patch Makefile 删 grpmodule 引用 — 注释掉 Modules/grpmodule.o 整行
+            # 因为 .c 已被删,但 Makefile 里还引用它,make 会报 No rule
+            makefile = join(build_dir, 'Makefile')
+            if exists(makefile):
+                with open(makefile, 'r') as f:
+                    lines = f.readlines()
+                new_lines = []
+                in_grp_section = False
+                for line in lines:
+                    stripped = line.strip()
+                    # 跳过 grpmodule 相关行
+                    if 'grpmodule' in stripped or 'Modules/grp' in stripped:
+                        continue
+                    if stripped.startswith('GRPOBJS'):
+                        continue
+                    new_lines.append(line)
+                with open(makefile, 'w') as f:
+                    f.writelines(new_lines)
+                info('Patched Makefile: removed grpmodule references')
+
             # 直接 rm grpmodule.c + Modules/grp/ 目录
             # while(0 && ...) 编译期还要看 getgrent 声明,bionic libc 没这个函数还是 error
             # rm 整个,make 找不到 .c 就不编
