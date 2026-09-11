@@ -247,7 +247,10 @@ class Python3Recipe(TargetPythonRecipe):
         env['CFLAGS'] = ' '.join(
             [
                 '-fPIC',
-                '-DANDROID'
+                '-DANDROID',
+                '-Wno-error=int-conversion',
+                '-Wno-error=incompatible-pointer-types',
+                '-Wno-error=implicit-function-declaration',
             ]
         )
 
