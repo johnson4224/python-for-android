@@ -383,7 +383,7 @@ class Python3Recipe(TargetPythonRecipe):
             # not in Android bionic libc. The cleanest fix is to also patch the .c file
             # itself to add a stub.
             import subprocess
-            grp_c = join(build_dir, 'Modules', 'grpmodule.c')
+            grp_c = join(recipe_build_dir, 'Modules', 'grpmodule.c')
             if exists(grp_c):
                 with open(grp_c, 'r') as f:
                     gc = f.read()
